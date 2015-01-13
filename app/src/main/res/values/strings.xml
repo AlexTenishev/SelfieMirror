@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Selfie Mirror v.0.0.1</string>
+    <string name="action_settings">Settings</string>
+    <string name="disclaimer_text">You can use back hardware key to return back to login screen from here. And to return to this screen from the next screen to change request option</string>
+    <string name="radiogroup_desc">Choose request type</string>
+    <string name="userdata_caption">Logged In User Details</string>
+    <string name="next_btn_text"><![CDATA[Next >>]]></string>
+    <string name="use_user_data">Use the most recent media published by a user</string>
+    <string name="use_media_data">Use a list of recently tagged media</string>
+    <string name="user_id">User ID:</string>
+    <string name="user_name">User name:</string>
+    <string name="user_full_name">User full name:</string>
+
+</resources>

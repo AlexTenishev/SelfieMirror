@@ -1,0 +1,22 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools" android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    tools:context="instagram.tenishev.com.selfiemirror.SelfiesFragment">
+
+    <ListView
+        android:id="@+id/selfie_list"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+    </ListView>
+
+    <ImageView
+        android:id="@+id/selfie_image"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="invisible"
+        android:scaleType="fitCenter"
+        />
+
+</FrameLayout>
