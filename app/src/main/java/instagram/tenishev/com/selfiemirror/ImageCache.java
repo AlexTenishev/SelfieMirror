@@ -14,8 +14,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.net.URL;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 
 /**
  * ImageCache class.
@@ -30,7 +29,7 @@ public class ImageCache extends Thread {
     private Handler mMessagesHandler;
     private HandlerThread mMessagesThread;
 
-    public static final int QUEUE_CAPACITY = 20;
+    public static final int QUEUE_CAPACITY = 50;
 
 
     private class LoadingImageEntity {
@@ -72,7 +71,7 @@ public class ImageCache extends Thread {
         }
     }
 
-    private BlockingQueue<LoadingImageEntity> mDecodeQueue = new ArrayBlockingQueue<LoadingImageEntity>(QUEUE_CAPACITY);
+    private LinkedBlockingDeque<LoadingImageEntity> mDecodeQueue = new LinkedBlockingDeque<LoadingImageEntity>(QUEUE_CAPACITY);
 
     public ImageCache(final Context context) {
         cacheDir = context.getCacheDir();
@@ -110,11 +109,7 @@ public class ImageCache extends Thread {
 
                 LoadingImageEntity entity = new LoadingImageEntity(url, vh);
                 vh.image.setTag(entity);
-                try {
-                    mDecodeQueue.put(entity);
-                } catch( InterruptedException e ) {
-                    e.printStackTrace();
-                }
+                mDecodeQueue.push(entity);
             }
         });
     }
