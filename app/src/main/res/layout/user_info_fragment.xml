@@ -4,6 +4,10 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     tools:context="instagram.tenishev.com.selfiemirror.UserInfoFragment">
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
     <LinearLayout
         android:id="@+id/info"
         android:visibility="invisible"
@@ -145,6 +149,7 @@
             android:text="@string/disclaimer_text"
             />
     </LinearLayout>
+    </ScrollView>
     <ProgressBar
         android:id="@+id/progress"
         android:layout_width="wrap_content"
