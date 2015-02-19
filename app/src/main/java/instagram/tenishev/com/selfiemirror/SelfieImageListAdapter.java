@@ -76,6 +76,11 @@ public class SelfieImageListAdapter extends BaseAdapter {
     }
 
     @Override
+    public int getItemViewType(int position) {
+        return ( position % 3 ) == 0 ? R.layout.img_big_row : R.layout.img_small_row;
+    }
+
+    @Override
     public View getView(int position, View convertView, ViewGroup parent) {
 
         // get to know what type of view do we need here
