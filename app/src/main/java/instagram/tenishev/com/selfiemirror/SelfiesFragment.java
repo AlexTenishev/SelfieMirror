@@ -37,6 +37,7 @@ import java.util.ArrayList;
 public class SelfiesFragment extends Fragment implements AdapterView.OnItemClickListener {
     private final static String TAG = SelfiesFragment.class.getSimpleName();
 
+    private OnFragmentInteractionListener mListener;
     private ListView    lvSelfie;
     private ImageView   bigImage;
     private boolean     mShouldUseSelfData = true;
@@ -45,6 +46,7 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
     private static final String IMAGE_TYPE_INDEX = "low_resolution";
     private static final String FILTER_TAG = "#selfie";
     private static final int    MEDIA_CHUNK_LIMIT = 50;
+    private Thread mWorkingThread;
 
     // FIXME: since we not using database here it is reasonable to limit the number of fetched items
     private static final int TOTAL_ITEMS_REASONABLE_LIMIT = 500;
@@ -57,12 +59,10 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
      */
     public static SelfiesFragment newInstance(final boolean shouldUseSelfData) {
         SelfiesFragment fragment = new SelfiesFragment();
-        fragment.setShouldUseSelfData(shouldUseSelfData);
+        Bundle args = new Bundle();
+        args.putBoolean(SHOULD_USE_SELF_STATE_PARAM, shouldUseSelfData);
+        fragment.setArguments(args);
         return fragment;
-    }
-
-    public void setShouldUseSelfData(final boolean shouldUseSelfData) {
-        this.mShouldUseSelfData = shouldUseSelfData;
     }
 
     public SelfiesFragment() {
@@ -75,7 +75,10 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
 
         if( savedInstanceState != null ) {
             mShouldUseSelfData = savedInstanceState.getBoolean(SHOULD_USE_SELF_STATE_PARAM);
+        } else if (getArguments() != null) {
+            mShouldUseSelfData = getArguments().getBoolean(SHOULD_USE_SELF_STATE_PARAM);
         }
+        mWorkingThread = new Thread(new FetchImagesRunnable(mShouldUseSelfData));
     }
 
     @Override
@@ -105,41 +108,27 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
         lvSelfie.setAdapter(adapter);
         lvSelfie.setOnItemClickListener(this);
 
-        new Thread(new FetchImagesRunnable(mShouldUseSelfData)).start();
-
-        rootView.setFocusableInTouchMode(true);
-        rootView.requestFocus();
-        rootView.setOnKeyListener(new View.OnKeyListener() {
-            @Override
-            public boolean onKey(View v, int keyCode, KeyEvent event) {
-                if( keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP ) {
-                    if( Constants.D ) {
-                        Log.i(TAG, "onKey Back pressed");
-                    }
-                    if( getFragmentManager().getBackStackEntryCount() > 0 ) {
-                        if( Constants.D ) {
-                            Log.i(TAG, "pop back from fragment stack");
-                        }
-                        getFragmentManager().popBackStack();
-                    }
-                    return true;
-                } else {
-                    return false;
-                }
-            }
-        });
-
+        if( !mWorkingThread.isAlive() ) {
+            mWorkingThread.start();
+        }
         return rootView;
     }
 
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
+        try {
+            mListener = (OnFragmentInteractionListener) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString()
+                    + " must implement OnFragmentInteractionListener");
+        }
     }
 
     @Override
     public void onDetach() {
         super.onDetach();
+        mListener = null;
     }
 
     @Override

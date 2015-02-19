@@ -67,13 +67,8 @@ public class SelfieImageListAdapter extends BaseAdapter {
         // get to know what type of view do we need here
         boolean isBigView = ( position % 3 ) == 0;
 
-        ImageViewHolder holder = convertView != null ? (ImageViewHolder) convertView.getTag() : null;
-        if( holder != null && holder.isBigView != isBigView ) {
-            holder = null;
-        }
-
-        if( convertView == null || ( convertView != null && holder == null ) ) {
-
+        ImageViewHolder holder;
+        if( convertView == null ) {
             convertView = mInflater.inflate(isBigView ? R.layout.img_big_row : R.layout.img_small_row, null);
             holder = new ImageViewHolder();
             holder.isBigView = isBigView;
@@ -87,6 +82,7 @@ public class SelfieImageListAdapter extends BaseAdapter {
 
         final ImageItem item = (ImageItem) getItem(position);
         mImageCache.add(item.url, holder);
+        holder.isBigView = isBigView;
         holder.caption.setText(item.caption);
 
         return convertView;

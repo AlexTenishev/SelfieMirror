@@ -12,6 +12,7 @@ import android.webkit.CookieManager;
 import android.webkit.CookieSyncManager;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.ProgressBar;
 
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
@@ -24,8 +25,10 @@ public class LoginFragment extends Fragment {
 
     private static final String TAG = LoginFragment.class.getSimpleName();
 
+    private OnFragmentInteractionListener mListener;
     private WebView mLoginWebView;
-    private String mAuthUrl;
+    private ProgressBar mProgressBar;
+    private final String mAuthUrl;
 
     /**
      * Use this factory method to create a new instance of this fragment
@@ -66,6 +69,9 @@ public class LoginFragment extends Fragment {
         mLoginWebView.getSettings().setJavaScriptEnabled(true);
         mLoginWebView.loadUrl(mAuthUrl);
 
+        mProgressBar = (ProgressBar) rootView.findViewById(R.id.uri_progress);
+        mProgressBar.setVisibility(View.VISIBLE);
+
         return rootView;
     }
 
@@ -89,10 +95,9 @@ public class LoginFragment extends Fragment {
                 InstaSession.get(getActivity()).setAccessToken(mAccessToken);
                 InstaSession.get(getActivity()).setUserId(userId);
 
-                getActivity().getFragmentManager().beginTransaction()
-                        .replace(R.id.container, UserInfoFragment.newInstance())
-                        .addToBackStack(TAG)
-                        .commit();
+                if (mListener != null) {
+                    mListener.onFragmentInteraction(Constants.Command.ShowUserInfo, null);
+                }
                 return true;
             }
             return false;
@@ -105,6 +110,7 @@ public class LoginFragment extends Fragment {
                 Log.d(TAG, "Page error: " + description + ", errorCode: " + errorCode + ", failingUrl: " + failingUrl);
             }
 
+            // TODO: add error view describing what happend
             super.onReceivedError(view, errorCode, description, failingUrl);
         }
 
@@ -123,6 +129,7 @@ public class LoginFragment extends Fragment {
             if( Constants.D ) {
                 Log.d(TAG, "onPageFinished URL: " + url);
             }
+            mProgressBar.setVisibility(View.INVISIBLE);
         }
 
     }
@@ -130,10 +137,17 @@ public class LoginFragment extends Fragment {
     @Override
     public void onAttach(Activity activity) {
         super.onAttach(activity);
+        try {
+            mListener = (OnFragmentInteractionListener) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString()
+                    + " must implement OnFragmentInteractionListener");
+        }
     }
 
     @Override
     public void onDetach() {
         super.onDetach();
+        mListener = null;
     }
 }

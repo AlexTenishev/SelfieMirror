@@ -17,6 +17,7 @@
         android:layout_height="match_parent"
         android:visibility="invisible"
         android:scaleType="fitCenter"
+        android:background="@color/selfie_image_bkg"
         />
 
 </FrameLayout>

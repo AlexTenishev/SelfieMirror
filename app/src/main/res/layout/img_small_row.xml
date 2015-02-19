@@ -32,6 +32,8 @@
         android:layout_height="wrap_content"
         android:textSize="@dimen/caption_text_size"
         android:gravity="center"
+        android:maxLines="2"
+        android:ellipsize="end"
         />
 
 </LinearLayout>

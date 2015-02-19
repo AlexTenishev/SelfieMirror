@@ -1,6 +1,7 @@
 package instagram.tenishev.com.selfiemirror;
 
 
+import android.app.Activity;
 import android.app.FragmentManager;
 import android.os.Bundle;
 import android.app.Fragment;
@@ -35,6 +36,7 @@ public class UserInfoFragment extends Fragment implements View.OnClickListener {
 
     private final String TAG = UserInfoFragment.class.getSimpleName();
 
+    private OnFragmentInteractionListener mListener;
     private View        infoView;
     private TextView    tvUserId;
     private TextView    tvUserName;
@@ -72,7 +74,8 @@ public class UserInfoFragment extends Fragment implements View.OnClickListener {
                 session.setName(user);
                 session.setUsername(name);
 
-                UserInfoFragment.this.getActivity().runOnUiThread(new Runnable() {
+//                UserInfoFragment.this.
+                getActivity().runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
                         tvUserId.setText("" + InstaSession.get(getActivity()).getUserId());
@@ -165,20 +168,12 @@ public class UserInfoFragment extends Fragment implements View.OnClickListener {
             public boolean onKey(View v, int keyCode, KeyEvent event) {
                 Log.i(TAG, "keyCode: " + keyCode);
                 if( keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP ) {
-                    Log.i(TAG, "onKey Back pressed, stack size is: " + getFragmentManager().getBackStackEntryCount());
+                    if( Constants.D ) {
+                        Log.i(TAG, "onKey Back pressed, stack size is: " + getFragmentManager().getBackStackEntryCount());
+                    }
 
-                    // clear cookies
-                    CookieSyncManager.createInstance(getActivity());
-                    CookieManager cookieManager = CookieManager.getInstance();
-                    cookieManager.removeAllCookie();
-
-                    if( getFragmentManager().getBackStackEntryCount() > 0 ) {
-                        Log.i(TAG, "pop back from fragment stack");
-                        getFragmentManager().popBackStack();
-                    } else {
-                        getFragmentManager().beginTransaction()
-                            .replace(R.id.container, LoginFragment.newInstance())
-                            .commit();
+                    if (mListener != null) {
+                        mListener.onFragmentInteraction(Constants.Command.BackFromUserInfo, null);
                     }
                     return true;
                 } else {
@@ -194,10 +189,26 @@ public class UserInfoFragment extends Fragment implements View.OnClickListener {
     @Override
     public void onClick(View view) {
         if( view.getId() == R.id.next ) {
-            getActivity().getFragmentManager().beginTransaction()
-                    .replace(R.id.container, SelfiesFragment.newInstance(requestTypeGroup.getCheckedRadioButtonId() == R.id.request_type_self))
-                    .addToBackStack(TAG)
-                    .commit();
+            if( mListener != null ) {
+                mListener.onFragmentInteraction(Constants.Command.ShowTaggedData, new Boolean(requestTypeGroup.getCheckedRadioButtonId() == R.id.request_type_self));
+            }
         }
+    }
+
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        try {
+            mListener = (OnFragmentInteractionListener) activity;
+        } catch (ClassCastException e) {
+            throw new ClassCastException(activity.toString()
+                    + " must implement OnFragmentInteractionListener");
+        }
+    }
+
+    @Override
+    public void onDetach() {
+        super.onDetach();
+        mListener = null;
     }
 }
