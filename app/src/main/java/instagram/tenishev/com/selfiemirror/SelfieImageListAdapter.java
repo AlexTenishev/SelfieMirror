@@ -32,6 +32,20 @@ public class SelfieImageListAdapter extends BaseAdapter {
         mContext = new WeakReference<Context>(context);
     }
 
+    public void setData(List<ImageItem> data) {
+        mItems = data;
+
+        final Context context = mContext.get();
+        if( context != null && context instanceof Activity) {
+            ((Activity)context).runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    notifyDataSetChanged();
+                }
+            });
+        }
+    }
+
     public void addData(List<ImageItem> data) {
         mItems.addAll(data);
 

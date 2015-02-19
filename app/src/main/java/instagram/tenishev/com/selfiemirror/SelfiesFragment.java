@@ -1,6 +1,7 @@
 package instagram.tenishev.com.selfiemirror;
 
 import android.app.Activity;
+import android.app.FragmentManager;
 import android.graphics.Bitmap;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Bundle;
@@ -13,19 +14,6 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ImageView;
 import android.widget.ListView;
-
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONTokener;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.ArrayList;
 
 
@@ -43,13 +31,7 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
     private boolean     mShouldUseSelfData = true;
 
     private static final String SHOULD_USE_SELF_STATE_PARAM = "mShouldUseSelfData";
-    private static final String IMAGE_TYPE_INDEX = "low_resolution";
-    private static final String FILTER_TAG = "#selfie";
-    private static final int    MEDIA_CHUNK_LIMIT = 50;
-    private Thread mWorkingThread;
-
-    // FIXME: since we not using database here it is reasonable to limit the number of fetched items
-    private static final int TOTAL_ITEMS_REASONABLE_LIMIT = 500;
+    private FetchImageDataFragment mFetchImageDataFrag;
 
     /**
      * Use this factory method to create a new instance of
@@ -78,7 +60,6 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
         } else if (getArguments() != null) {
             mShouldUseSelfData = getArguments().getBoolean(SHOULD_USE_SELF_STATE_PARAM);
         }
-        mWorkingThread = new Thread(new FetchImagesRunnable(mShouldUseSelfData));
     }
 
     @Override
@@ -86,6 +67,24 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
         super.onSaveInstanceState(outState);
 
         outState.putBoolean(SHOULD_USE_SELF_STATE_PARAM, mShouldUseSelfData);
+    }
+
+    @Override
+    public void onActivityCreated(Bundle savedInstanceState) {
+        super.onActivityCreated(savedInstanceState);
+
+        FragmentManager fm = getActivity().getFragmentManager();
+        // Check to see if we have retained the worker fragment.
+        mFetchImageDataFrag = (FetchImageDataFragment) fm.findFragmentByTag(FetchImageDataFragment.TAG_ID);
+        // If not retained (or first time running), we need to create it.
+        if( mFetchImageDataFrag == null ) {
+            mFetchImageDataFrag = FetchImageDataFragment.newInstance(mShouldUseSelfData);
+            // Tell it who it is working with.
+            mFetchImageDataFrag.setTargetFragment(this, 0);
+            fm.beginTransaction().add(mFetchImageDataFrag, FetchImageDataFragment.TAG_ID).commit();
+        } else {
+            mFetchImageDataFrag.setTargetFragment(this, 0);
+        }
     }
 
     @Override
@@ -108,9 +107,29 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
         lvSelfie.setAdapter(adapter);
         lvSelfie.setOnItemClickListener(this);
 
-        if( !mWorkingThread.isAlive() ) {
-            mWorkingThread.start();
-        }
+        rootView.setFocusableInTouchMode(true);
+        rootView.requestFocus();
+        rootView.setOnKeyListener(new View.OnKeyListener() {
+            @Override
+            public boolean onKey(View v, int keyCode, KeyEvent event) {
+                if( Constants.D ) {
+                    Log.i(TAG, "keyCode: " + keyCode);
+                }
+                if( keyCode == KeyEvent.KEYCODE_BACK && event.getAction() == KeyEvent.ACTION_UP ) {
+                    if( Constants.D ) {
+                        Log.i(TAG, "onKey Back pressed, stack size is: " + getFragmentManager().getBackStackEntryCount());
+                    }
+                    // here we should destroy retained fragment
+                    // Check to see if we have retained the worker fragment.
+                    if( mFetchImageDataFrag != null ) {
+                        FragmentManager fm = getActivity().getFragmentManager();
+                        fm.beginTransaction().remove(mFetchImageDataFrag).commit();
+                        mFetchImageDataFrag = null;
+                    }
+                }
+                return false;
+            }
+        });
         return rootView;
     }
 
@@ -129,6 +148,9 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
     public void onDetach() {
         super.onDetach();
         mListener = null;
+        if( mFetchImageDataFrag != null ) {
+            mFetchImageDataFrag = null;
+        }
     }
 
     @Override
@@ -140,148 +162,6 @@ public class SelfiesFragment extends Fragment implements AdapterView.OnItemClick
                 bigImage.setImageBitmap(bitmap);
                 bigImage.setVisibility(View.VISIBLE);
             }
-        }
-    }
-
-    private class FetchImagesRunnable implements Runnable {
-
-        private URL mNextUrl;
-
-        public FetchImagesRunnable(final boolean shouldUseSelfData) {
-            try {
-
-                mNextUrl = new URL(
-                    Constants.InstagrammApp.API_URL +
-                    ( shouldUseSelfData ? Constants.InstagrammApp.MEDIA_URL : Constants.InstagrammApp.TAG_SELFIE_MEDIA ) +
-                    "?access_token=" + InstaSession.get(SelfiesFragment.this.getActivity()).getAccessToken() + "&count=" + MEDIA_CHUNK_LIMIT
-                   );
-            } catch (MalformedURLException mue) {
-                mue.printStackTrace();
-            }
-        }
-
-        @Override
-        public void run() {
-            if( Constants.D ) {
-                Log.i(TAG, "Starting fetch data");
-            }
-            boolean shouldContinueToRequestData = true;
-            while( shouldContinueToRequestData ) {
-                if( Constants.D ) {
-                    Log.i(TAG, "Opening Token URL " + mNextUrl.toString());
-                }
-                try {
-                    HttpURLConnection urlConnection = (HttpURLConnection) mNextUrl.openConnection();
-                    urlConnection.setRequestMethod("GET");
-                    urlConnection.setDoInput(true);
-                    final String response = streamToString(urlConnection.getInputStream());
-                    if( Constants.D ) {
-                        Log.i(TAG, "response " + response);
-                    }
-
-                    JSONObject jsonObj = (JSONObject) new JSONTokener(response).nextValue();
-
-                    //get operation status
-                    final String code = jsonObj.getJSONObject("meta").getString("code");
-                    if( Constants.D ) {
-                        Log.i(TAG, "meta:code: " + code);
-                    }
-                    shouldContinueToRequestData = code.equals("200");
-                    if( shouldContinueToRequestData ) {
-                        JSONObject pagination = jsonObj.getJSONObject("pagination");
-                        if( pagination.has("next_url") ) {
-                            mNextUrl = new URL(pagination.getString("next_url"));
-                            shouldContinueToRequestData = parseDataChunk(jsonObj.getJSONArray("data"));
-                        } else {
-                            shouldContinueToRequestData = false;
-                            parseDataChunk(jsonObj.getJSONArray("data"));
-                            if( Constants.D ) {
-                                Log.i(TAG, "No more data. Finishing fetching json data");
-                            }
-                        }
-                    }
-                } catch(IOException ioe) {
-                    ioe.printStackTrace();
-                    shouldContinueToRequestData = false;
-                } catch(JSONException je) {
-                    je.printStackTrace();
-                    shouldContinueToRequestData = false;
-                }
-
-
-            }
-
-
-        }
-
-        private boolean parseDataChunk(JSONArray data) {
-            boolean result = true;
-            ArrayList<ImageItem> items = new ArrayList<ImageItem>();
-            try {
-                for (int i = 0; i < data.length(); ++i) {
-                    JSONObject item = data.getJSONObject(i);
-                    if (item.getString("type").equals("image")) {
-                        final String timestampStr = item.getString("created_time");
-                        if( !item.isNull("caption") ) {
-                            final String captionData = item.getJSONObject("caption").getString("text");
-                            if (captionData.toLowerCase().contains(FILTER_TAG)) {
-                                JSONObject images = item.getJSONObject("images");
-                                JSONObject imageDesc = images.getJSONObject(IMAGE_TYPE_INDEX);
-
-                                // get image data:
-                                final String url = imageDesc.getString("url");
-
-                                ImageItem imageItem = new ImageItem();
-                                imageItem.url = url;
-                                imageItem.timestamp = timestampStr;
-                                imageItem.caption = captionData;
-                                items.add(imageItem);
-                            }
-                        }
-                    }
-                }
-            } catch( JSONException je) {
-                je.printStackTrace();
-                result = false;
-            }
-
-            if( result && items.size() > 0 ) {
-                if( Constants.D ) {
-                    Log.i(TAG, "add items chunk with " + items.size() + " elements");
-                }
-                if( lvSelfie.getAdapter() instanceof SelfieImageListAdapter ) {
-                    ((SelfieImageListAdapter)lvSelfie.getAdapter()).addData(items);
-                    result &= lvSelfie.getAdapter().getCount() <= TOTAL_ITEMS_REASONABLE_LIMIT;
-                }
-            }
-
-            return result;
-        }
-
-        private final String streamToString(final InputStream is) throws IOException {
-            String str = "";
-
-            if (is != null) {
-                StringBuilder sb = new StringBuilder();
-                String line;
-
-                try {
-                    BufferedReader reader = new BufferedReader(
-                            new InputStreamReader(is));
-
-                    while ((line = reader.readLine()) != null) {
-                        sb.append(line);
-                    }
-
-                    reader.close();
-                } finally {
-                    is.close();
-                }
-
-                str = sb.toString();
-            }
-
-            return str;
         }
     }
 }
